@@ -1,0 +1,4 @@
+Migrations for 'gcna_data':
+  gcna_data\migrations\0013_moisture_analysis_a_moisture_analysis_b.py
+    - Create model Moisture_Analysis_A
+    - Create model Moisture_Analysis_B
