@@ -1,4 +1,0 @@
-# .railwayignore
-node_modules/
-.git/
-large_file.txt
