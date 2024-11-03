@@ -11,8 +11,8 @@
   <head>
 <link rel="manifest" href="('/static/manifest.json)">
  <script src="/static/js/true_sync.js"></script>
-<script src="/static/js/indexeddb.js"></script> 
-
+<!-- <script src="/static/js/indexeddb.js"></script> 
+ -->
 {% comment %} <script>
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/static/js/serviceworker.js').then(function (registration) {
@@ -114,6 +114,119 @@ navigator.serviceWorker.addEventListener('message', (event) => {
 
 </script> 
 
+<script>
+    const modelNames =  [
+    'Worker', 'Farmer', 'DriedA', 'DriedB', 'FloatA', 'FloatB', 'Quaility', 'visit', 
+    'In-House-Drying', 'Dispatch-Of-Dried-Nutmeg', 'Dispatch-Of-Green', 'Cracking-Summary', 
+    'Floation-Summary', 'Package-Ciontrol', 'Editors', 'Labour-support', 'Training-support', 
+    'land-info', 'Land-Tenur', 'Nutmeg-Trees', 'Nutmeg-Variety', 'Other-Crops', 'Coconut-Trees', 
+    'Citrus-Mango-Trees', 'Other-Spices-Trees', 'Other-Seasoning-Trees', 'Other-Crops-Cultivated', 
+    'Condition', 'Nutmeg-Land', 'Nutmeg-Frequency', 'Potential-Risks', 'Road-Access', 
+    'Food-Safety-and-Quality', 'Farm-Water-Source', 'Farm-House', 'inspector-symmary', 'Policy', 
+    'Sanitation-A','Sanitation-B','Sanitation-C','Cracking_Schedule','Assorting_Log',
+    'Extractor_Log','Fumigation_Log','Shelves','W_Shelves','M_Shelves','W_Shelves_Dried',
+    'M_Shelves_Dried','Vehicle_Inspection','Final_Weight_Inspection','Final_Weight_Inspection_fields',
+    'Dispatch_Of_Dried_Nutmeg_Rec','Dispatch_Of_Green_Nutmeg_Rec','Cracking_Extraction_Summary'
+];
+
+    function deleteDatabase(dbName) {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.deleteDatabase(dbName);
+            request.onsuccess = function () {
+                resolve();
+            };
+            request.onerror = function (event) {
+                reject(event.target.error);
+            };
+        });
+    }
+
+    function openIndexedDBConnection(dbName) {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(dbName, 2);
+            request.onupgradeneeded = function (event) {
+                const db = event.target.result;
+                modelNames.forEach(modelName => {
+                    if (!db.objectStoreNames.contains(modelName)) {
+                        db.createObjectStore(modelName, { keyPath: 'id' });
+                    }
+                });
+            };
+            request.onsuccess = function (event) {
+                resolve(event.target.result);
+            };
+            request.onerror = function (event) {
+                reject(event.target.error);
+            };
+        });
+    }
+
+    function fetchDataAndStore(db, modelName) {
+        return new Promise((resolve, reject) => {
+            fetch(`/api/${modelName}/`)
+                .then(response => response.json())
+                .then(data => {
+                    const transaction = db.transaction(modelName, 'readwrite');
+                    const objectStore = transaction.objectStore(modelName);
+                    data.forEach(item => {
+                        objectStore.put(item);
+                    });
+
+                    transaction.oncomplete = function () {
+                        resolve();
+                    };
+                })
+                .catch(error => {
+                    console.error('Error fetching data for model:', modelName, error);
+                    reject(error);
+                });
+        });
+    }
+
+    // Create visual feedback elements
+    const loadingMessage = document.createElement('div');
+    loadingMessage.id = 'loadingMessage';
+    loadingMessage.innerHTML = 'Loading database, please wait...';
+    document.body.appendChild(loadingMessage);
+
+    const progressBar = document.createElement('progress');
+    progressBar.id = 'progressBar';
+    progressBar.max = modelNames.length;
+    progressBar.value = 0;
+    document.body.appendChild(progressBar);
+
+    // Create "GCNA" database
+    const gcnaDBName = 'GCNA';
+
+    deleteDatabase(gcnaDBName)
+        .then(() => openIndexedDBConnection(gcnaDBName))
+        .then(db => {
+            let completed = 0;
+            const updateProgressBar = () => {
+                completed++;
+                progressBar.value = completed;
+                if (completed === modelNames.length) {
+                    loadingMessage.innerHTML = 'Database "GCNA" created successfully with data.';
+                }
+            };
+            return Promise.all(modelNames.map(modelName => fetchDataAndStore(db, modelName).then(updateProgressBar)));
+        })
+        .catch(error => {
+            console.error(`Error creating database "${gcnaDBName}":`, error);
+            loadingMessage.innerHTML = `Error creating database "${gcnaDBName}": ${error.message}`;
+        });
+
+    // Create "DELETED" database
+    const deletedDBName = 'DELETED';
+
+    deleteDatabase(deletedDBName)
+        .then(() => openIndexedDBConnection(deletedDBName))
+        .then(db => {
+            db.close();
+            console.log(`Database "${deletedDBName}" created successfully with empty object stores.`);
+        })
+        .catch(error => console.error(`Error creating database "${deletedDBName}":`, error));
+</script>
 
     <!-- Required meta tags -->
     <meta charset="utf-8">
